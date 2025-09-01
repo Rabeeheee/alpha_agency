@@ -1,122 +1,222 @@
+import 'package:alpha_agency/features/auth/presentation/bloc/auth_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
+import 'core/constants/app_colors.dart';
+import 'core/network/dio_client.dart';
+import 'core/utils/token_manager.dart';
+import 'features/auth/data/datasources/auth_remote_data_source.dart';
+import 'features/auth/data/repositories/auth_repository_impl.dart';
+import 'features/auth/domain/repositories/auth_repository.dart';
+import 'features/auth/domain/usecases/login_usecase.dart';
+import 'features/auth/domain/usecases/logout_usecase.dart';
+import 'features/auth/domain/usecases/refresh_token_usecase.dart';
+import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/auth/presentation/bloc/auth_event.dart';
+import 'features/auth/presentation/pages/login_page.dart';
+import 'features/profile/data/datasources/profile_remote_data_source.dart';
+import 'features/profile/data/repositories/profile_repository_impl.dart';
+import 'features/profile/domain/repositories/profile_repository.dart';
+import 'features/profile/domain/usecases/get_user_profile_usecase.dart';
+import 'features/profile/domain/usecases/update_profile_usecase.dart';
+import 'features/profile/presentation/bloc/profile_bloc.dart';
+import 'features/profile/presentation/pages/dashboard_page.dart';
 
+/// Service locator instance
+final GetIt sl = GetIt.instance;
+
+/// Main entry point of the application
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  _setupDependencyInjection();
   runApp(const MyApp());
 }
 
+/// Setup dependency injection container
+void _setupDependencyInjection() {
+  // Core dependencies
+  sl.registerLazySingleton<TokenManager>(() => TokenManager());
+  sl.registerLazySingleton<DioClient>(() => DioClient(sl()));
+
+  // Auth feature dependencies
+  sl.registerLazySingleton<AuthRemoteDataSource>(
+    () => AuthRemoteDataSourceImpl(sl()),
+  );
+  sl.registerLazySingleton<AuthRepository>(
+    () => AuthRepositoryImpl(sl(), sl()),
+  );
+  sl.registerLazySingleton(() => LoginUseCase(sl()));
+  sl.registerLazySingleton(() => LogoutUseCase(sl()));
+  sl.registerLazySingleton(() => RefreshTokenUseCase(sl()));
+
+  // Profile feature dependencies
+  sl.registerLazySingleton<ProfileRemoteDataSource>(
+    () => ProfileRemoteDataSourceImpl(sl()),
+  );
+  sl.registerLazySingleton<ProfileRepository>(
+    () => ProfileRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton(() => GetUserProfileUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateProfileUseCase(sl()));
+
+  // BLoC dependencies
+  sl.registerFactory(() => AuthBloc(
+        loginUseCase: sl(),
+        logoutUseCase: sl(),
+        refreshTokenUseCase: sl(),
+        tokenManager: sl(),
+      ));
+  sl.registerFactory(() => ProfileBloc(
+        getUserProfileUseCase: sl(),
+        updateProfileUseCase: sl(),
+      ));
+}
+
+/// Main application widget
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => sl<AuthBloc>()..add(CheckAuthStatusEvent())),
+        BlocProvider(create: (_) => sl<ProfileBloc>()),
+      ],
+      child: MaterialApp(
+        title: 'Flutter Clean Architecture App',
+        debugShowCheckedModeBanner: false,
+        theme: _buildAppTheme(),
+        home: const AuthenticationWrapper(),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
+
+  /// Build application theme with black and white color scheme
+  ThemeData _buildAppTheme() {
+  return ThemeData(
+    primarySwatch: Colors.grey,
+    primaryColor: AppColors.primaryBlack,
+    scaffoldBackgroundColor: AppColors.backgroundColor,
+    colorScheme: const ColorScheme.light(
+      primary: AppColors.primaryBlack,
+      secondary: AppColors.darkGrey,
+      surface: AppColors.surfaceColor,
+      background: AppColors.backgroundColor,
+      onPrimary: AppColors.primaryWhite,
+      onSecondary: AppColors.primaryWhite,
+      onSurface: AppColors.primaryTextColor,
+      onBackground: AppColors.primaryTextColor,
+    ),
+    textTheme: const TextTheme(
+      displayLarge: TextStyle(color: AppColors.primaryTextColor),
+      displayMedium: TextStyle(color: AppColors.primaryTextColor),
+      displaySmall: TextStyle(color: AppColors.primaryTextColor),
+      headlineLarge: TextStyle(color: AppColors.primaryTextColor),
+      headlineMedium: TextStyle(color: AppColors.primaryTextColor),
+      headlineSmall: TextStyle(color: AppColors.primaryTextColor),
+      titleLarge: TextStyle(color: AppColors.primaryTextColor),
+      titleMedium: TextStyle(color: AppColors.primaryTextColor),
+      titleSmall: TextStyle(color: AppColors.primaryTextColor),
+      bodyLarge: TextStyle(color: AppColors.primaryTextColor),
+      bodyMedium: TextStyle(color: AppColors.primaryTextColor),
+      bodySmall: TextStyle(color: AppColors.secondaryTextColor),
+      labelLarge: TextStyle(color: AppColors.primaryTextColor),
+      labelMedium: TextStyle(color: AppColors.secondaryTextColor),
+      labelSmall: TextStyle(color: AppColors.secondaryTextColor),
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: AppColors.primaryBlack,
+      foregroundColor: AppColors.primaryWhite,
+      elevation: 0,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primaryBlack,
+        foregroundColor: AppColors.primaryWhite,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.lightGrey),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.primaryBlack, width: 2),
+      ),
+      filled: true,
+      fillColor: AppColors.veryLightGrey,
+    ),
+
+    // ✅ Updated types here
+    cardTheme: CardThemeData(
+      color: AppColors.primaryWhite,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppColors.lightGrey, width: 1),
+      ),
+    ),
+    dialogTheme: const DialogThemeData(
+      backgroundColor: AppColors.primaryWhite,
+      titleTextStyle: TextStyle(
+        color: AppColors.primaryTextColor,
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+      ),
+      contentTextStyle: TextStyle(
+        color: AppColors.secondaryTextColor,
+        fontSize: 14,
+      ),
+      // shape, elevation, etc. can be added if you need them
+    ),
+
+    snackBarTheme: const SnackBarThemeData(
+      backgroundColor: AppColors.primaryBlack,
+      contentTextStyle: TextStyle(color: AppColors.primaryWhite),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+      behavior: SnackBarBehavior.floating,
+    ),
+    useMaterial3: true,
+  );
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+/// Authentication wrapper to handle initial route based on auth state
+class AuthenticationWrapper extends StatelessWidget {
+  const AuthenticationWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        // Show loading screen while checking auth status
+        if (state is AuthLoading || state is AuthInitial) {
+          return const Scaffold(
+            backgroundColor: AppColors.backgroundColor,
+            body: Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryBlack),
+              ),
             ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+          );
+        }
+        
+        // Navigate based on authentication state
+        if (state is AuthAuthenticated) {
+          return const DashboardPage();
+        } else {
+          return const LoginPage();
+        }
+      },
     );
   }
 }
