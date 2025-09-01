@@ -3,15 +3,15 @@ import '../../../../core/error/failures.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/entities/update_profile_request.dart';
 import '../../domain/repositories/profile_repository.dart';
-import '../datasources/profile_remote_data_source.dart';
+import '../datasources/profile_remote_data_source.dart'; 
 import '../models/update_profile_request_model.dart';
 
 /// Implementation of profile repository
 class ProfileRepositoryImpl implements ProfileRepository {
   final ProfileRemoteDataSource remoteDataSource;
-  
+
   ProfileRepositoryImpl(this.remoteDataSource);
-  
+
   @override
   Future<Either<Failure, UserProfile>> getUserProfile() async {
     try {
@@ -21,7 +21,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
-  
+
   @override
   Future<Either<Failure, UserProfile>> updateProfile(
     UpdateProfileRequest request,
