@@ -1,16 +1,18 @@
 import 'package:alpha_agency/features/auth/presentation/pages/widgets/auth_header.dart';
 import 'package:alpha_agency/features/auth/presentation/pages/widgets/custom_button.dart';
-import 'package:alpha_agency/features/auth/presentation/pages/widgets/custom_textfield.dart';
+import 'package:alpha_agency/features/auth/presentation/pages/widgets/password_textfield.dart';
+import 'package:alpha_agency/features/auth/presentation/pages/widgets/username_textfield.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../../../profile/presentation/pages/dashboard_page.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 
+import 'widgets/loading_indicator.dart';
 
+/// Login page widget
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -27,13 +29,32 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _initializeDefaultCredentials();
+    _usernameController.text = '9999999999'; 
+    _passwordController.text = 'Alpha@2025'; 
   }
 
   @override
   void dispose() {
-    _disposeControllers();
+    _usernameController.dispose();
+    _passwordController.dispose();
     super.dispose();
+  }
+
+  void _handleLogin() {
+    if (_formKey.currentState!.validate()) {
+      context.read<AuthBloc>().add(
+            LoginEvent(
+              username: _usernameController.text.trim(),
+              password: _passwordController.text.trim(),
+            ),
+          );
+    }
+  }
+
+  void _togglePasswordVisibility() {
+    setState(() {
+      _obscurePassword = !_obscurePassword;
+    });
   }
 
   @override
@@ -41,136 +62,73 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       body: BlocConsumer<AuthBloc, AuthState>(
-        listener: _authStateListener,
-        builder: (context, state) => _buildBody(state),
-      ),
-    );
-  }
-
-//DEFAULT CREDENTIALS
-  void _initializeDefaultCredentials() {
-    _usernameController.text = AppConstants.defaultUsername;
-    _passwordController.text = AppConstants.defaultPassword;
-  }
-
-  void _disposeControllers() {
-    _usernameController.dispose();
-    _passwordController.dispose();
-  }
-
-  
-  void _authStateListener(BuildContext context, AuthState state) {
-    if (state is AuthAuthenticated) {
-      _navigateToDashboard();
-    } else if (state is AuthError) {
-      _showErrorMessage(state.message);
-    }
-  }
-
-  /// NavigatION TO dashboard page after successful login
-  void _navigateToDashboard() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const DashboardPage()),
-    );
-  }
-
-  /// Show error message in snackbar
-  void _showErrorMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.errorColor,
-      ),
-    );
-  }
-
-  // main body content
-  Widget _buildBody(AuthState state) {
-    return SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                //AUTH HEADER
-                const AuthHeader(),
-                const SizedBox(height: 48),
-                _buildUsernameField(),
-                const SizedBox(height: 16),
-                _buildPasswordField(),
-                const SizedBox(height: 32),
-                _buildLoginButton(state),
-                const SizedBox(height: 16),
-                if (state is AuthLoading) _buildLoadingIndicator(),
-              ],
+        listener: (context, state) {
+          if (state is AuthAuthenticated) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const DashboardPage()),
+            );
+          } else if (state is AuthError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(_getErrorMessage(state.message)),
+                backgroundColor: AppColors.errorColor,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          return SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      //login header
+                      const LoginHeader(),
+                      const SizedBox(height: 48),
+                      //username field
+                      UsernameField(controller: _usernameController),
+                      const SizedBox(height: 16),
+                      //password field
+                      PasswordField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        onToggleVisibility: _togglePasswordVisibility,
+                      ),
+                      const SizedBox(height: 32),
+                      //login button
+                      LoginButton(
+                        onPressed: state is AuthLoading ? null : _handleLogin,
+                      ),
+                      const SizedBox(height: 16),
+                      if (state is AuthLoading) const LoadingIndicator(),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildUsernameField() {
-    //CUSTOM TEXT FIELD BUTTON
-    return CustomTextField(
-      controller: _usernameController,
-      labelText: 'Username',
-      prefixIcon: Icons.phone,
-      keyboardType: TextInputType.phone,
-      validator: (value) => value?.isEmpty == true ? 'Please enter username' : null,
-    );
-  }
-
-  
-  Widget _buildPasswordField() {
-    return CustomTextField(
-      controller: _passwordController,
-      labelText: 'Password',
-      prefixIcon: Icons.lock,
-      obscureText: _obscurePassword,
-      suffixIcon: IconButton(
-        icon: Icon(
-          _obscurePassword ? Icons.visibility : Icons.visibility_off,
-          color: AppColors.mediumGrey,
-        ),
-        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-      ),
-      validator: (value) => value?.isEmpty == true ? 'Please enter password' : null,
-    );
-  }
-
-  // login button with loading state
-  Widget _buildLoginButton(AuthState state) {
-    //CUSTOM LOGIN BUTTOM 
-    return CustomButton(
-      text: 'Login',
-      onPressed: state is AuthLoading ? null : _handleLogin,
-      height: 56,
-    );
-  }
-
-  /// Build loading indicator
-  Widget _buildLoadingIndicator() {
-    return const Center(
-      child: CircularProgressIndicator(
-        valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryBlack),
-      ),
-    );
-  }
-
-  /// Handle login form submission
-  void _handleLogin() {
-    if (_formKey.currentState!.validate()) {
-      context.read<AuthBloc>().add(
-        LoginEvent(
-          username: _usernameController.text.trim(),
-          password: _passwordController.text.trim(),
-        ),
-      );
+  String _getErrorMessage(String message) {
+    // Map generic error messages to user-friendly ones
+    switch (message) {
+      case 'invalid_credentials':
+        return 'Invalid username or password. Please try again.';
+      case 'network_error':
+        return 'Network error. Please check your internet connection.';
+      case 'server_error':
+        return 'Server error. Please try again later.';
+      default:
+        return message.isEmpty ? 'An error occurred. Please try again.' : message;
     }
   }
 }
