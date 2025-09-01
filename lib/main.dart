@@ -102,11 +102,9 @@ class MyApp extends StatelessWidget {
       primary: AppColors.primaryBlack,
       secondary: AppColors.darkGrey,
       surface: AppColors.surfaceColor,
-      background: AppColors.backgroundColor,
       onPrimary: AppColors.primaryWhite,
       onSecondary: AppColors.primaryWhite,
       onSurface: AppColors.primaryTextColor,
-      onBackground: AppColors.primaryTextColor,
     ),
     textTheme: const TextTheme(
       displayLarge: TextStyle(color: AppColors.primaryTextColor),

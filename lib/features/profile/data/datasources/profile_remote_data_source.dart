@@ -19,7 +19,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     try {
       final response = await client.get(AppConstants.userInfoEndpoint);
 
-      // HANDLE DIFFERENT RESPONCE STRUCTURES
+      // Handle different response structures
       Map<String, dynamic> data;
       if (response.data is Map<String, dynamic>) {
         data = response.data;
@@ -33,11 +33,8 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
 
       return UserProfileModel.fromJson(data);
     } on DioException catch (e) {
-      print('DioException in getUserProfile: ${e.message}');
-      print('Response data: ${e.response?.data}');
       throw Exception('Failed to get user profile: ${e.message}');
     } catch (e) {
-      print('Exception in getUserProfile: $e');
       throw Exception('Failed to get user profile: $e');
     }
   }
@@ -45,10 +42,17 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   @override
   Future<UserProfileModel> updateProfile(UpdateProfileRequestModel request) async {
     try {
+
+      // ignore: unused_local_variable
+      final response = await client.post(
+        AppConstants.updateProfileEndpoint,
+        data: request.toFormData(),
+      );
+
+      
       try {
         final updatedProfileResponse = await client.get(AppConstants.userInfoEndpoint);
         
-        // HANDLE DIFFERENT RESPONCES FOR THE PROFILE
         Map<String, dynamic> profileData;
         if (updatedProfileResponse.data is Map<String, dynamic>) {
           profileData = updatedProfileResponse.data;
@@ -62,12 +66,13 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
 
         return UserProfileModel.fromJson(profileData);
       } catch (fetchError) {
+        
         final fallbackData = {
           'first_name': request.name.trim(), 
           'last_name': '',
-          'name': request.name.trim(),
+          'name': request.name.trim(), 
           'email': request.email,
-          'mobile': '+91 9876543210',
+          'mobile': '+91 9876543210', 
         };
         
         return UserProfileModel.fromJson(fallbackData);
