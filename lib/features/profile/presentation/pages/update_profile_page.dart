@@ -36,9 +36,16 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
   /// Load current profile data to pre-fill the form
   void _loadCurrentProfile() {
     final state = context.read<ProfileBloc>().state;
+    print('Current state in UpdateProfilePage: $state'); // Debug log
+    
     if (state is ProfileLoaded) {
-      _nameController.text = state.profile.name;
-      _emailController.text = state.profile.email;
+      _nameController.text = state.profile.name.isNotEmpty ? state.profile.name : '';
+      _emailController.text = state.profile.email.isNotEmpty ? state.profile.email : '';
+      print('Pre-filled name: ${_nameController.text}'); // Debug log
+      print('Pre-filled email: ${_emailController.text}'); // Debug log
+    } else if (state is ProfileUpdateSuccess) {
+      _nameController.text = state.profile.name.isNotEmpty ? state.profile.name : '';
+      _emailController.text = state.profile.email.isNotEmpty ? state.profile.email : '';
     }
   }
 
@@ -56,7 +63,14 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
                 backgroundColor: AppColors.successColor,
               ),
             );
-            Navigator.of(context).pop(true); // Return true to indicate success
+            // Trigger profile reload to ensure UI reflects server data
+            context.read<ProfileBloc>().add(LoadUserProfileEvent());
+            // Add a small delay before popping to ensure state is updated
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                Navigator.of(context).pop(true); // Return true to indicate success
+              }
+            });
           } else if (state is ProfileError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -94,6 +108,10 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
 
                     // Loading Indicator
                     if (state is ProfileLoading) _buildLoadingIndicator(),
+                    
+                    // Debug information (remove in production)
+                    if (state is ProfileLoaded || state is ProfileUpdateSuccess)
+                      _buildDebugInfo(state),
                   ],
                 ),
               ),
@@ -102,6 +120,51 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
         },
       ),
     );
+  }
+
+  // Debug widget (remove in production)
+  Widget _buildDebugInfo(ProfileState state) {
+    final profile = state is ProfileLoaded 
+        ? state.profile 
+        : (state as ProfileUpdateSuccess).profile;
+    
+    return Container(
+      margin: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Debug Info:', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text('Name: "${profile.name}"'),
+          Text('Email: "${profile.email}"'),
+          Text('Mobile: "${profile.mobile}"'),
+          Text('Name isEmpty: ${profile.name.isEmpty}'),
+          Text('Email isEmpty: ${profile.email.isEmpty}'),
+        ],
+      ),
+    );
+  }
+
+  /// Handle update button press
+  void _handleUpdate() {
+    if (_formKey.currentState!.validate()) {
+      final name = _nameController.text.trim();
+      final email = _emailController.text.trim();
+      
+      print('Updating profile with name: "$name", email: "$email"'); // Debug log
+      
+      final request = UpdateProfileRequest(
+        name: name,
+        email: email,
+      );
+
+      context.read<ProfileBloc>().add(UpdateUserProfileEvent(request));
+    }
   }
 
   /// Build app bar
@@ -318,17 +381,5 @@ class _UpdateProfilePageState extends State<UpdateProfilePage> {
         ],
       ),
     );
-  }
-
-  /// Handle update button press
-  void _handleUpdate() {
-    if (_formKey.currentState!.validate()) {
-      final request = UpdateProfileRequest(
-        name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-      );
-
-      context.read<ProfileBloc>().add(UpdateUserProfileEvent(request));
-    }
   }
 }

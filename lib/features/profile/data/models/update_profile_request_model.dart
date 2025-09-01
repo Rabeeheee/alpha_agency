@@ -9,8 +9,9 @@ class UpdateProfileRequestModel extends UpdateProfileRequest {
   
   /// Convert to form data for API request
   Map<String, dynamic> toFormData() {
+    // Server expects 'name' field, not first_name/last_name
     return {
-      'name': name,
+      'name': name.trim(),
       'email': email,
     };
   }

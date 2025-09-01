@@ -25,12 +25,23 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   ) async {
     emit(ProfileLoading());
     
-    final result = await getUserProfileUseCase();
-    
-    result.fold(
-      (failure) => emit(ProfileError(failure.message)),
-      (profile) => emit(ProfileLoaded(profile)),
-    );
+    try {
+      final result = await getUserProfileUseCase();
+      
+      result.fold(
+        (failure) {
+          print('Profile Load Failure: ${failure.message}');
+          emit(ProfileError(failure.message));
+        },
+        (profile) {
+          print('Profile Loaded Successfully: ${profile.toString()}');
+          emit(ProfileLoaded(profile));
+        },
+      );
+    } catch (e) {
+      print('Exception in _onLoadUserProfile: $e');
+      emit(ProfileError('Failed to load profile: $e'));
+    }
   }
   
   /// Handle updating user profile
@@ -40,11 +51,23 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   ) async {
     emit(ProfileLoading());
     
-    final result = await updateProfileUseCase(event.request);
-    
-    result.fold(
-      (failure) => emit(ProfileError(failure.message)),
-      (profile) => emit(ProfileUpdateSuccess(profile)),
-    );
+    try {
+      final result = await updateProfileUseCase(event.request);
+      
+      result.fold(
+        (failure) {
+          print('Profile Update Failure: ${failure.message}');
+          emit(ProfileError(failure.message));
+        },
+        (profile) {
+          print('Profile Updated Successfully: ${profile.toString()}');
+          emit(ProfileUpdateSuccess(profile));
+          // Don't immediately trigger reload since the update already fetches latest data
+        },
+      );
+    } catch (e) {
+      print('Exception in _onUpdateUserProfile: $e');
+      emit(ProfileError('Failed to update profile: $e'));
+    }
   }
 }
