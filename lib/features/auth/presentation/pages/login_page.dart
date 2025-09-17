@@ -9,10 +9,9 @@ import '../../../profile/presentation/pages/dashboard_page.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
-
 import 'widgets/loading_indicator.dart';
 
-/// Login page widget
+/// Login page widget with enhanced validation and error handling
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -29,8 +28,11 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _usernameController.text = '9999999999'; 
+     _usernameController.text = '9999999999'; 
     _passwordController.text = 'Alpha@2025'; 
+    _passwordController.addListener(() {
+      setState(() {}); // Rebuild to update password requirements
+    });
   }
 
   @override
@@ -42,12 +44,13 @@ class _LoginPageState extends State<LoginPage> {
 
   void _handleLogin() {
     if (_formKey.currentState!.validate()) {
+      // Additional validation is handled in the BLoC
       context.read<AuthBloc>().add(
-            LoginEvent(
-              username: _usernameController.text.trim(),
-              password: _passwordController.text.trim(),
-            ),
-          );
+        LoginEvent(
+          username: _usernameController.text.trim(),
+          password: _passwordController.text.trim(),
+        ),
+      );
     }
   }
 
@@ -57,6 +60,33 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Error'),
+            ],
+          ),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'OK',
+                style: TextStyle(color: AppColors.primaryBlack),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -64,17 +94,16 @@ class _LoginPageState extends State<LoginPage> {
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
-            Navigator.of(context).pushReplacement(
+            // Clear form and navigate to dashboard
+            _usernameController.clear();
+            _passwordController.clear();
+
+            Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (_) => const DashboardPage()),
+              (route) => false, // Remove all previous routes
             );
           } else if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(_getErrorMessage(state.message)),
-                backgroundColor: AppColors.errorColor,
-                duration: const Duration(seconds: 4),
-              ),
-            );
+            _showErrorDialog(state.message);
           }
         },
         builder: (context, state) {
@@ -88,25 +117,61 @@ class _LoginPageState extends State<LoginPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      //login header
+                      // Login header
                       const LoginHeader(),
                       const SizedBox(height: 48),
-                      //username field
+
+                      // Username field
                       UsernameField(controller: _usernameController),
                       const SizedBox(height: 16),
-                      //password field
+
+                      // Password field with requirements
                       PasswordField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         onToggleVisibility: _togglePasswordVisibility,
                       ),
                       const SizedBox(height: 32),
-                      //login button
+
+                      // Login button
                       LoginButton(
                         onPressed: state is AuthLoading ? null : _handleLogin,
                       ),
                       const SizedBox(height: 16),
+
+                      // Loading indicator
                       if (state is AuthLoading) const LoadingIndicator(),
+
+                      // Debug info (remove in production)
+                      if (state is AuthError)
+                        Container(
+                          margin: const EdgeInsets.only(top: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.error,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  state.message,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -116,19 +181,5 @@ class _LoginPageState extends State<LoginPage> {
         },
       ),
     );
-  }
-
-  String _getErrorMessage(String message) {
-    // Map generic error messages to user-friendly ones
-    switch (message) {
-      case 'invalid_credentials':
-        return 'Invalid username or password. Please try again.';
-      case 'network_error':
-        return 'Network error. Please check your internet connection.';
-      case 'server_error':
-        return 'Server error. Please try again later.';
-      default:
-        return message.isEmpty ? 'An error occurred. Please try again.' : message;
-    }
   }
 }

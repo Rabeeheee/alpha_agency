@@ -18,6 +18,16 @@ class AppConstants {
   static const String updateProfileEndpoint = 'update_profile';
   
   // Storage Keys
-  static const String accessTokenKey = 'access_token';
-  static const String refreshTokenKey = 'refresh_token';
+  static const String accessTokenKey = 'secure_access_token';
+  static const String refreshTokenKey = 'secure_refresh_token';
+
+  // Validation Constants
+  static const int mobileNumberLength = 10;
+  static const int minPasswordLength = 6;
+  
+  // Error Messages
+  static const String networkErrorMessage = 'Network error. Please check your internet connection.';
+  static const String serverErrorMessage = 'Server error. Please try again later.';
+  static const String invalidCredentialsMessage = 'Invalid mobile number or password. Please check your credentials.';
+  static const String unexpectedErrorMessage = 'An unexpected error occurred. Please try again.';
 }

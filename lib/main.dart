@@ -1,5 +1,6 @@
 import 'package:alpha_agency/features/auth/presentation/bloc/auth_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'core/constants/app_colors.dart';
@@ -26,50 +27,66 @@ import 'features/profile/presentation/pages/dashboard_page.dart';
 final GetIt sl = GetIt.instance;
 
 /// Main entry point of the application
-void main() {
+void main() async {
+  // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
-  _setupDependencyInjection();
+  
+  // Set preferred device orientation (optional)
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+  
+  // Setup dependency injection
+  await _setupDependencyInjection();
+  
+  // Run the app
   runApp(const MyApp());
 }
 
-/// Setup dependency injection container
-void _setupDependencyInjection() {
-  // Core dependencies
-  sl.registerLazySingleton<TokenManager>(() => TokenManager());
-  sl.registerLazySingleton<DioClient>(() => DioClient(sl()));
+/// Setup dependency injection container with async initialization
+Future<void> _setupDependencyInjection() async {
+  try {
+    // Core dependencies
+    sl.registerLazySingleton<TokenManager>(() => TokenManager());
+    sl.registerLazySingleton<DioClient>(() => DioClient(sl()));
 
-  // Auth feature dependencies
-  sl.registerLazySingleton<AuthRemoteDataSource>(
-    () => AuthRemoteDataSourceImpl(sl()),
-  );
-  sl.registerLazySingleton<AuthRepository>(
-    () => AuthRepositoryImpl(sl(), sl()),
-  );
-  sl.registerLazySingleton(() => LoginUseCase(sl()));
-  sl.registerLazySingleton(() => LogoutUseCase(sl()));
-  sl.registerLazySingleton(() => RefreshTokenUseCase(sl()));
+    // Auth feature dependencies
+    sl.registerLazySingleton<AuthRemoteDataSource>(
+      () => AuthRemoteDataSourceImpl(sl()),
+    );
+    sl.registerLazySingleton<AuthRepository>(
+      () => AuthRepositoryImpl(sl(), sl()),
+    );
+    sl.registerLazySingleton(() => LoginUseCase(sl()));
+    sl.registerLazySingleton(() => LogoutUseCase(sl()));
+    sl.registerLazySingleton(() => RefreshTokenUseCase(sl()));
 
-  // Profile feature dependencies
-  sl.registerLazySingleton<ProfileRemoteDataSource>(
-    () => ProfileRemoteDataSourceImpl(sl()),
-  );
-  sl.registerLazySingleton<ProfileRepository>(
-    () => ProfileRepositoryImpl(sl()),
-  );
-  sl.registerLazySingleton(() => GetUserProfileUseCase(sl()));
-  sl.registerLazySingleton(() => UpdateProfileUseCase(sl()));
+    // Profile feature dependencies
+    sl.registerLazySingleton<ProfileRemoteDataSource>(
+      () => ProfileRemoteDataSourceImpl(sl()),
+    );
+    sl.registerLazySingleton<ProfileRepository>(
+      () => ProfileRepositoryImpl(sl()),
+    );
+    sl.registerLazySingleton(() => GetUserProfileUseCase(sl()));
+    sl.registerLazySingleton(() => UpdateProfileUseCase(sl()));
 
-  // BLoC dependencies
-  sl.registerFactory(() => AuthBloc(
-        loginUseCase: sl(),
-        logoutUseCase: sl(),
-        refreshTokenUseCase: sl(),
-        tokenManager: sl(),
-      ));
-  sl.registerFactory(() => ProfileBloc(
-        getUserProfileUseCase: sl(),
-        updateProfileUseCase: sl(),
-      ));
+    // BLoC dependencies
+    sl.registerFactory(() => AuthBloc(
+          loginUseCase: sl(),
+          logoutUseCase: sl(),
+          refreshTokenUseCase: sl(),
+          tokenManager: sl(),
+        ));
+    sl.registerFactory(() => ProfileBloc(
+          getUserProfileUseCase: sl(),
+          updateProfileUseCase: sl(),
+        ));
+  } catch (e) {
+    // Handle dependency injection setup errors
+    debugPrint('Error setting up dependencies: $e');
+    rethrow;
+  }
 }
 
 /// Main application widget
@@ -80,112 +97,146 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => sl<AuthBloc>()..add(CheckAuthStatusEvent())),
-        BlocProvider(create: (_) => sl<ProfileBloc>()),
+        BlocProvider(
+          create: (_) => sl<AuthBloc>()..add(CheckAuthStatusEvent()),
+        ),
+        BlocProvider(
+          create: (_) => sl<ProfileBloc>(),
+        ),
       ],
       child: MaterialApp(
-        title: 'Flutter Clean Architecture App',
+        title: 'Alpha Agency App',
         debugShowCheckedModeBanner: false,
         theme: _buildAppTheme(),
         home: const AuthenticationWrapper(),
+        // Add global error handling
+        builder: (context, child) {
+          return _GlobalErrorHandler(child: child);
+        },
       ),
     );
   }
 
   /// Build application theme with black and white color scheme
   ThemeData _buildAppTheme() {
-  return ThemeData(
-    primarySwatch: Colors.grey,
-    primaryColor: AppColors.primaryBlack,
-    scaffoldBackgroundColor: AppColors.backgroundColor,
-    colorScheme: const ColorScheme.light(
-      primary: AppColors.primaryBlack,
-      secondary: AppColors.darkGrey,
-      surface: AppColors.surfaceColor,
-      onPrimary: AppColors.primaryWhite,
-      onSecondary: AppColors.primaryWhite,
-      onSurface: AppColors.primaryTextColor,
-    ),
-    textTheme: const TextTheme(
-      displayLarge: TextStyle(color: AppColors.primaryTextColor),
-      displayMedium: TextStyle(color: AppColors.primaryTextColor),
-      displaySmall: TextStyle(color: AppColors.primaryTextColor),
-      headlineLarge: TextStyle(color: AppColors.primaryTextColor),
-      headlineMedium: TextStyle(color: AppColors.primaryTextColor),
-      headlineSmall: TextStyle(color: AppColors.primaryTextColor),
-      titleLarge: TextStyle(color: AppColors.primaryTextColor),
-      titleMedium: TextStyle(color: AppColors.primaryTextColor),
-      titleSmall: TextStyle(color: AppColors.primaryTextColor),
-      bodyLarge: TextStyle(color: AppColors.primaryTextColor),
-      bodyMedium: TextStyle(color: AppColors.primaryTextColor),
-      bodySmall: TextStyle(color: AppColors.secondaryTextColor),
-      labelLarge: TextStyle(color: AppColors.primaryTextColor),
-      labelMedium: TextStyle(color: AppColors.secondaryTextColor),
-      labelSmall: TextStyle(color: AppColors.secondaryTextColor),
-    ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.primaryBlack,
-      foregroundColor: AppColors.primaryWhite,
-      elevation: 0,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
+    return ThemeData(
+      primarySwatch: Colors.grey,
+      primaryColor: AppColors.primaryBlack,
+      scaffoldBackgroundColor: AppColors.backgroundColor,
+      colorScheme: const ColorScheme.light(
+        primary: AppColors.primaryBlack,
+        secondary: AppColors.darkGrey,
+        surface: AppColors.surfaceColor,
+        onPrimary: AppColors.primaryWhite,
+        onSecondary: AppColors.primaryWhite,
+        onSurface: AppColors.primaryTextColor,
+        error: Colors.red,
+        onError: Colors.white,
+      ),
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(color: AppColors.primaryTextColor),
+        displayMedium: TextStyle(color: AppColors.primaryTextColor),
+        displaySmall: TextStyle(color: AppColors.primaryTextColor),
+        headlineLarge: TextStyle(color: AppColors.primaryTextColor),
+        headlineMedium: TextStyle(color: AppColors.primaryTextColor),
+        headlineSmall: TextStyle(color: AppColors.primaryTextColor),
+        titleLarge: TextStyle(color: AppColors.primaryTextColor),
+        titleMedium: TextStyle(color: AppColors.primaryTextColor),
+        titleSmall: TextStyle(color: AppColors.primaryTextColor),
+        bodyLarge: TextStyle(color: AppColors.primaryTextColor),
+        bodyMedium: TextStyle(color: AppColors.primaryTextColor),
+        bodySmall: TextStyle(color: AppColors.secondaryTextColor),
+        labelLarge: TextStyle(color: AppColors.primaryTextColor),
+        labelMedium: TextStyle(color: AppColors.secondaryTextColor),
+        labelSmall: TextStyle(color: AppColors.secondaryTextColor),
+      ),
+      appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.primaryBlack,
         foregroundColor: AppColors.primaryWhite,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primaryBlack,
+          foregroundColor: AppColors.primaryWhite,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
         ),
       ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.lightGrey),
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.lightGrey),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.primaryBlack, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.red, width: 1),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.red, width: 2),
+        ),
+        filled: true,
+        fillColor: AppColors.veryLightGrey,
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.primaryBlack, width: 2),
+      cardTheme: CardThemeData(
+        color: AppColors.primaryWhite,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: AppColors.lightGrey, width: 1),
+        ),
       ),
-      filled: true,
-      fillColor: AppColors.veryLightGrey,
-    ),
-
-    // ✅ Updated types here
-    cardTheme: CardThemeData(
-      color: AppColors.primaryWhite,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: AppColors.lightGrey, width: 1),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: AppColors.primaryWhite,
+        titleTextStyle: TextStyle(
+          color: AppColors.primaryTextColor,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+        contentTextStyle: TextStyle(
+          color: AppColors.secondaryTextColor,
+          fontSize: 14,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
       ),
-    ),
-    dialogTheme: const DialogThemeData(
-      backgroundColor: AppColors.primaryWhite,
-      titleTextStyle: TextStyle(
-        color: AppColors.primaryTextColor,
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
+      snackBarTheme: const SnackBarThemeData(
+        backgroundColor: AppColors.primaryBlack,
+        contentTextStyle: TextStyle(color: AppColors.primaryWhite),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
+        behavior: SnackBarBehavior.floating,
       ),
-      contentTextStyle: TextStyle(
-        color: AppColors.secondaryTextColor,
-        fontSize: 14,
+      // Add progress indicator theme
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.primaryBlack,
       ),
-      // shape, elevation, etc. can be added if you need them
-    ),
-
-    snackBarTheme: const SnackBarThemeData(
-      backgroundColor: AppColors.primaryBlack,
-      contentTextStyle: TextStyle(color: AppColors.primaryWhite),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-      ),
-      behavior: SnackBarBehavior.floating,
-    ),
-    useMaterial3: true,
-  );
+      useMaterial3: true,
+    );
+  }
 }
 
+/// Global error handler widget
+class _GlobalErrorHandler extends StatelessWidget {
+  final Widget? child;
+
+  const _GlobalErrorHandler({this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return child ?? const SizedBox();
+  }
 }
 
 /// Authentication wrapper to handle initial route based on auth state
@@ -194,27 +245,89 @@ class AuthenticationWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
+    return BlocConsumer<AuthBloc, AuthState>(
+      listener: (context, state) {
+        // Handle side effects here
+        if (state is AuthError) {
+          // Log error for debugging
+          debugPrint('Authentication Error: ${state.message}');
+        }
+      },
       builder: (context, state) {
         // Show loading screen while checking auth status
         if (state is AuthLoading || state is AuthInitial) {
-          return const Scaffold(
-            backgroundColor: AppColors.backgroundColor,
-            body: Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryBlack),
-              ),
-            ),
-          );
+          return const _LoadingScreen();
         }
         
         // Navigate based on authentication state
         if (state is AuthAuthenticated) {
           return const DashboardPage();
         } else {
+          // This includes AuthUnauthenticated and AuthError states
           return const LoginPage();
         }
       },
+    );
+  }
+}
+
+/// Loading screen widget
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.backgroundColor,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // App logo or icon
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlack,
+                borderRadius: BorderRadius.circular(40),
+              ),
+              child: const Icon(
+                Icons.business,
+                color: AppColors.primaryWhite,
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 32),
+            
+            // Loading indicator
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryBlack),
+            ),
+            const SizedBox(height: 24),
+            
+            // Loading text
+            const Text(
+              'Loading...',
+              style: TextStyle(
+                color: AppColors.primaryTextColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            
+            // Subtitle
+            const Text(
+              'Please wait while we set up your session',
+              style: TextStyle(
+                color: AppColors.secondaryTextColor,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
