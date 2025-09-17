@@ -194,7 +194,7 @@ class MyApp extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           side: const BorderSide(color: AppColors.lightGrey, width: 1),
         ),
-      ),
+       ),
       dialogTheme: const DialogThemeData(
         backgroundColor: AppColors.primaryWhite,
         titleTextStyle: TextStyle(
